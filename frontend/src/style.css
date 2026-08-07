@@ -1,0 +1,32 @@
+html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+html {
+    color-scheme: dark;
+    background: #0b0f0e;
+}
+
+body {
+    min-width: 900px;
+    min-height: 600px;
+    overflow: hidden;
+    color: #f4f7f5;
+    background: #0b0f0e;
+    font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+    color: #052619;
+    background: #20e487;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: #39453f; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: #4b5a53; background-clip: padding-box; }

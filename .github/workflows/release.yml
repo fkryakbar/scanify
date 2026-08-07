@@ -1,0 +1,100 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-release:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Validate release tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+            throw "Tag '$tag' tidak valid. Gunakan format vMAJOR.MINOR.PATCH, misalnya v2.1.0."
+          }
+          $version = $Matches.version
+          "VERSION=$version" >> $env:GITHUB_ENV
+          "ASSET_NAME=Scanify-$tag-windows-amd64.exe" >> $env:GITHUB_ENV
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        shell: pwsh
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Apply tag version to Windows metadata
+        shell: pwsh
+        run: |
+          $config = Get-Content wails.json -Raw | ConvertFrom-Json
+          $config.info.productVersion = $env:VERSION
+          $config | ConvertTo-Json -Depth 20 | Set-Content wails.json -Encoding utf8NoBOM
+
+      - name: Test Go backend
+        run: go test ./...
+
+      - name: Test React frontend
+        working-directory: frontend
+        run: npm test
+
+      - name: Build portable executable
+        shell: pwsh
+        run: |
+          wails build -clean -trimpath -platform windows/amd64 -webview2 embed -ldflags "-X main.Version=$env:VERSION" -o scanify.exe
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item build/bin/scanify.exe "dist/$env:ASSET_NAME"
+          $hash = (Get-FileHash "dist/$env:ASSET_NAME" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $env:ASSET_NAME" | Set-Content dist/checksums.txt -Encoding ascii
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scanify-${{ github.ref_name }}-windows-amd64
+          path: |
+            dist/*.exe
+            dist/checksums.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ github.ref_name }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "${{ github.ref_name }}" "dist/$env:ASSET_NAME" dist/checksums.txt --clobber
+          } else {
+            gh release create "${{ github.ref_name }}" "dist/$env:ASSET_NAME" dist/checksums.txt --verify-tag --generate-notes --title "Scanify $env:VERSION"
+          }
