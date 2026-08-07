@@ -61,12 +61,16 @@ jobs:
           $config.info.productVersion = $env:VERSION
           $config | ConvertTo-Json -Depth 20 | Set-Content wails.json -Encoding utf8NoBOM
 
-      - name: Test Go backend
-        run: go test ./...
-
       - name: Test React frontend
         working-directory: frontend
         run: npm test
+
+      - name: Build React frontend for Go embed
+        working-directory: frontend
+        run: npm run build
+
+      - name: Test Go backend
+        run: go test ./...
 
       - name: Build portable executable
         shell: pwsh

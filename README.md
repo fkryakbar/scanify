@@ -74,11 +74,13 @@ wails dev
 
 ## Pengujian
 
-Jalankan seluruh tes yang tidak memerlukan perangkat fisik:
+Pada clone baru, build frontend terlebih dahulu karena hasil `frontend/dist` di-embed oleh Go:
 
 ```powershell
-go test ./...
+npm ci --prefix frontend
 npm test --prefix frontend
+npm run build --prefix frontend
+go test ./...
 ```
 
 Uji deteksi scanner fisik:
