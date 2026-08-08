@@ -6,6 +6,14 @@ export function DeletePage(arg1) {
   return window['go']['main']['App']['DeletePage'](arg1);
 }
 
+export function CheckForUpdate() {
+  return window['go']['main']['App']['CheckForUpdate']();
+}
+
+export function DownloadUpdate(arg1) {
+  return window['go']['main']['App']['DownloadUpdate'](arg1);
+}
+
 export function ExportSelected(arg1) {
   return window['go']['main']['App']['ExportSelected'](arg1);
 }

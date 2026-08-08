@@ -6,7 +6,9 @@ import App from './App';
 import * as bindings from '../wailsjs/go/main/App';
 
 vi.mock('../wailsjs/go/main/App', () => ({
+    CheckForUpdate: vi.fn(),
     DeletePage: vi.fn(),
+    DownloadUpdate: vi.fn(),
     ExportSelected: vi.fn(),
     GetSession: vi.fn(),
     ListScanners: vi.fn(),
@@ -22,6 +24,13 @@ const baseSession = {
 
 describe('Scanify workspace', () => {
     beforeEach(() => {
+        vi.mocked(bindings.CheckForUpdate).mockResolvedValue({
+            available: false,
+            currentVersion: '2.0.0',
+            latestVersion: '2.0.0',
+            releaseName: '',
+            releaseNotes: '',
+        } as any);
         vi.mocked(bindings.GetSession).mockResolvedValue(baseSession as any);
         vi.mocked(bindings.ListScanners).mockResolvedValue([{id: 'canon-1', name: 'WIA Canon MP280 ser'}] as any);
     });
@@ -66,5 +75,28 @@ describe('Scanify workspace', () => {
         await waitFor(() => expect(bindings.SetPageSelected).toHaveBeenCalledWith('page-1', true));
         expect(await screen.findByLabelText('Urutan ekspor 1')).toHaveTextContent('1');
         expect(screen.getByRole('button', {name: /^Simpan/})).toBeEnabled();
+    });
+
+    it('meminta persetujuan lalu mengunduh update yang dipilih', async () => {
+        vi.mocked(bindings.CheckForUpdate).mockResolvedValue({
+            available: true,
+            currentVersion: '2.0.0',
+            latestVersion: '2.1.0',
+            releaseName: 'Scanify 2.1.0',
+            releaseNotes: 'Perbaikan stabilitas.',
+        } as any);
+        vi.mocked(bindings.DownloadUpdate).mockResolvedValue({
+            version: '2.1.0',
+            path: 'C:\\Users\\tester\\Downloads\\Scanify-v2.1.0-windows-amd64.exe',
+        } as any);
+
+        render(<App/>);
+        const user = userEvent.setup();
+        expect(await screen.findByRole('dialog', {name: 'Update ke Scanify 2.1.0?'})).toBeInTheDocument();
+        await user.click(screen.getByRole('button', {name: 'Ya, unduh update'}));
+
+        await waitFor(() => expect(bindings.DownloadUpdate).toHaveBeenCalledWith('2.1.0'));
+        expect(await screen.findByText('Scanify 2.1.0 selesai diunduh')).toBeInTheDocument();
+        expect(screen.queryByRole('dialog', {name: 'Update ke Scanify 2.1.0?'})).not.toBeInTheDocument();
     });
 });

@@ -2,7 +2,9 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import scanifyLogo from './assets/images/scanify-logo.png';
 import './App.css';
 import {
+    CheckForUpdate,
     DeletePage,
+    DownloadUpdate,
     ExportSelected,
     GetSession,
     ListScanners,
@@ -11,7 +13,7 @@ import {
 } from '../wailsjs/go/main/App';
 import {main} from '../wailsjs/go/models';
 
-type Operation = 'loading' | 'refreshing' | 'scanning' | 'exporting-jpg' | 'exporting-pdf' | null;
+type Operation = 'loading' | 'refreshing' | 'scanning' | 'exporting-jpg' | 'exporting-pdf' | 'downloading-update' | null;
 type ToastKind = 'success' | 'warning' | 'error';
 
 interface Toast {
@@ -40,6 +42,7 @@ function App() {
     const [operation, setOperation] = useState<Operation>('loading');
     const [pendingPage, setPendingPage] = useState<string | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
+    const [updateInfo, setUpdateInfo] = useState<main.UpdateInfoDTO | null>(null);
     const [toasts, setToasts] = useState<Toast[]>([]);
     const toastID = useRef(0);
 
@@ -100,6 +103,20 @@ function App() {
             active = false;
         };
     }, [addToast]);
+
+    useEffect(() => {
+        let active = true;
+        CheckForUpdate()
+            .then((info) => {
+                if (active && info.available) setUpdateInfo(info);
+            })
+            .catch(() => {
+                // Pemeriksaan otomatis tidak boleh mengganggu penggunaan saat sedang offline.
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const busy = operation !== null;
     const activeScannerName = useMemo(
@@ -168,6 +185,24 @@ function App() {
             }
         } catch (error) {
             addToast('error', 'Ekspor gagal', errorMessage(error));
+        } finally {
+            setOperation(null);
+        }
+    }
+
+    async function handleDownloadUpdate() {
+        if (!updateInfo || busy) return;
+        setOperation('downloading-update');
+        try {
+            const result = await DownloadUpdate(updateInfo.latestVersion);
+            setUpdateInfo(null);
+            addToast(
+                'success',
+                `Scanify ${result.version} selesai diunduh`,
+                `File baru disiapkan di ${result.path}. Scanify akan ditutup dan dibuka kembali otomatis.`,
+            );
+        } catch (error) {
+            addToast('error', 'Pembaruan gagal diunduh', errorMessage(error));
         } finally {
             setOperation(null);
         }
@@ -385,6 +420,52 @@ function App() {
                 </section>
             </main>
 
+            {updateInfo && (
+                <div className="modal-backdrop" role="presentation">
+                    <section
+                        className="export-modal update-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="update-title"
+                    >
+                        <div className="modal-icon"><DownloadIcon/></div>
+                        <div className="modal-copy">
+                            <span className="eyebrow">Pembaruan tersedia</span>
+                            <h2 id="update-title">Update ke Scanify {updateInfo.latestVersion}?</h2>
+                            <p>
+                                Versi saat ini {updateInfo.currentVersion}. File resmi akan diunduh otomatis dari GitHub
+                                dan diverifikasi dengan SHA-256.
+                            </p>
+                        </div>
+                        {updateInfo.releaseNotes && (
+                            <div className="release-notes">
+                                <strong>{updateInfo.releaseName || `Scanify ${updateInfo.latestVersion}`}</strong>
+                                <p>{updateInfo.releaseNotes}</p>
+                            </div>
+                        )}
+                        <div className="update-actions">
+                            <button
+                                className="cancel-button"
+                                type="button"
+                                disabled={operation === 'downloading-update'}
+                                onClick={() => setUpdateInfo(null)}
+                            >
+                                Nanti saja
+                            </button>
+                            <button
+                                className="scan-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={handleDownloadUpdate}
+                            >
+                                <DownloadIcon/>
+                                <span>{operation === 'downloading-update' ? 'Mengunduh...' : 'Ya, unduh update'}</span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
+
             {exportOpen && (
                 <div className="modal-backdrop" role="presentation" onMouseDown={() => setExportOpen(false)}>
                     <section
@@ -443,6 +524,7 @@ function operationTitle(operation: Operation): string {
         case 'scanning': return 'Sedang memindai';
         case 'exporting-jpg': return 'Menyimpan gambar JPG';
         case 'exporting-pdf': return 'Menyusun dokumen PDF';
+        case 'downloading-update': return 'Mengunduh pembaruan';
         default: return 'Memproses';
     }
 }
@@ -452,6 +534,7 @@ function operationDescription(operation: Operation): string {
         case 'scanning': return 'Jangan mengangkat penutup scanner hingga proses selesai.';
         case 'exporting-jpg': return 'Mengonversi halaman sesuai urutan pilihan.';
         case 'exporting-pdf': return 'Menata setiap halaman pada lembar A4.';
+        case 'downloading-update': return 'Mengunduh file resmi dan memverifikasi SHA-256.';
         default: return 'Mohon tunggu sebentar.';
     }
 }

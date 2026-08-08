@@ -16,6 +16,40 @@ export namespace main {
 	        this.paths = source["paths"];
 	    }
 	}
+	export class UpdateDownloadDTO {
+	    version: string;
+	    path: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdateDownloadDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.path = source["path"];
+	    }
+	}
+	export class UpdateInfoDTO {
+	    available: boolean;
+	    currentVersion: string;
+	    latestVersion: string;
+	    releaseName: string;
+	    releaseNotes: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdateInfoDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.releaseName = source["releaseName"];
+	        this.releaseNotes = source["releaseNotes"];
+	    }
+	}
 	export class PageDTO {
 	    id: string;
 	    thumbnailDataURL: string;
@@ -136,4 +170,3 @@ export namespace main {
 	}
 
 }
-

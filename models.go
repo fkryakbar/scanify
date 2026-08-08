@@ -37,6 +37,19 @@ type ExportResultDTO struct {
 	Paths     []string `json:"paths"`
 }
 
+type UpdateInfoDTO struct {
+	Available      bool   `json:"available"`
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	ReleaseName    string `json:"releaseName"`
+	ReleaseNotes   string `json:"releaseNotes"`
+}
+
+type UpdateDownloadDTO struct {
+	Version string `json:"version"`
+	Path    string `json:"path"`
+}
+
 const (
 	modeColor      = "color"
 	modeGrayscale  = "grayscale"

@@ -24,6 +24,8 @@ Scanify adalah aplikasi open-source berbasis Go dan Wails untuk memindai, menyus
 - Penggabungan halaman terpilih menjadi PDF A4.
 - Nama file unik sehingga hasil lama tidak ditimpa.
 - Pembersihan file sesi sementara saat aplikasi ditutup.
+- Pemeriksaan versi otomatis dari GitHub Release dengan persetujuan sebelum mengunduh.
+- Verifikasi SHA-256 untuk setiap pembaruan yang diunduh.
 - Antarmuka berbahasa Indonesia dengan tema gelap.
 
 ## Kompatibilitas
@@ -46,6 +48,8 @@ Binary rilis menyertakan bootstrapper WebView2. Jika WebView2 Runtime belum ters
 5. Jalankan EXE, pilih scanner dan pengaturan, lalu tekan **Mulai scan**.
 
 Tidak ada installer dan tidak ada layanan latar belakang. Hasil scan hanya disimpan ke lokasi yang dipilih pengguna.
+
+Saat aplikasi versi rilis dibuka, Scanify memeriksa GitHub Release terbaru. Jika versi baru tersedia, pengguna dapat memilih **Ya, unduh update** atau **Nanti saja**. Pembaruan yang disetujui diunduh ke folder binary yang sedang berjalan, diverifikasi dengan ukuran dan checksum SHA-256, lalu aplikasi lama ditutup dan EXE baru dijalankan otomatis dari path yang sama. Jika penggantian gagal, binary lama dipulihkan oleh updater.
 
 ## Pengembangan
 
@@ -159,7 +163,7 @@ Untuk masalah scanner, sertakan versi Windows, nama perangkat, versi driver WIA,
 
 ## Privasi
 
-Pemindaian dan ekspor dilakukan secara lokal. Scanify tidak mengunggah dokumen, telemetri, atau data scanner ke server. Koneksi internet hanya mungkin diperlukan oleh bootstrapper ketika WebView2 Runtime belum terpasang.
+Pemindaian dan ekspor dilakukan secara lokal. Scanify tidak mengunggah dokumen, telemetri, atau data scanner ke server. Pada build rilis, aplikasi mengakses API dan asset GitHub Release untuk memeriksa serta—hanya setelah disetujui—mengunduh pembaruan. Koneksi internet juga mungkin diperlukan oleh bootstrapper ketika WebView2 Runtime belum terpasang.
 
 ## Lisensi
 

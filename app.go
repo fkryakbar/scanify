@@ -18,6 +18,7 @@ type App struct {
 	scanner   ScannerBackend
 	session   *Session
 	exporter  Exporter
+	updater   *UpdateService
 	initErr   error
 	operation sync.Mutex
 	statusMu  sync.RWMutex
@@ -30,6 +31,7 @@ func NewApp() *App {
 		scanner:  NewWIAWorker(),
 		session:  session,
 		exporter: Exporter{},
+		updater:  NewUpdateService(Version),
 		initErr:  err,
 		status:   "Mencari scanner WIA...",
 	}
@@ -37,6 +39,34 @@ func NewApp() *App {
 		app.status = "Folder sementara tidak dapat dibuat."
 	}
 	return app
+}
+
+func (a *App) CheckForUpdate() (UpdateInfoDTO, error) {
+	if a.updater == nil {
+		return UpdateInfoDTO{}, errors.New("layanan pembaruan belum siap")
+	}
+	return a.updater.Check(a.context())
+}
+
+func (a *App) DownloadUpdate(version string) (UpdateDownloadDTO, error) {
+	if a.updater == nil {
+		return UpdateDownloadDTO{}, errors.New("layanan pembaruan belum siap")
+	}
+	result, err := a.updater.Download(a.context(), version)
+	if err != nil {
+		return UpdateDownloadDTO{}, err
+	}
+	finalPath, err := a.updater.ScheduleRestart(result.Path)
+	if err != nil {
+		return UpdateDownloadDTO{}, err
+	}
+	result.Path = finalPath
+	// Beri waktu pada Wails mengirim respons ke frontend sebelum proses lama ditutup.
+	go func(ctx context.Context) {
+		time.Sleep(500 * time.Millisecond)
+		runtime.Quit(ctx)
+	}(a.context())
+	return result, nil
 }
 
 func (a *App) startup(ctx context.Context) {
