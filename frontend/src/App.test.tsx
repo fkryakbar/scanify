@@ -10,10 +10,13 @@ vi.mock('../wailsjs/go/main/App', () => ({
     DeletePage: vi.fn(),
     DownloadUpdate: vi.fn(),
     ExportSelected: vi.fn(),
+    GetArsipinConfig: vi.fn(),
     GetSession: vi.fn(),
     ListScanners: vi.fn(),
+    SaveArsipinConfig: vi.fn(),
     Scan: vi.fn(),
     SetPageSelected: vi.fn(),
+    UploadSelectedToArsipin: vi.fn(),
 }));
 
 const baseSession = {
@@ -33,6 +36,7 @@ describe('Scanify workspace', () => {
         } as any);
         vi.mocked(bindings.GetSession).mockResolvedValue(baseSession as any);
         vi.mocked(bindings.ListScanners).mockResolvedValue([{id: 'canon-1', name: 'WIA Canon MP280 ser'}] as any);
+        vi.mocked(bindings.GetArsipinConfig).mockResolvedValue({uploadUrl: '', passwordConfigured: false} as any);
     });
 
     afterEach(() => {
@@ -75,6 +79,46 @@ describe('Scanify workspace', () => {
         await waitFor(() => expect(bindings.SetPageSelected).toHaveBeenCalledWith('page-1', true));
         expect(await screen.findByLabelText('Urutan ekspor 1')).toHaveTextContent('1');
         expect(screen.getByRole('button', {name: /^Simpan/})).toBeEnabled();
+    });
+
+    it('menahan upload tanpa konfigurasi dan membuka modal melalui ikon gear', async () => {
+        const page = {
+            id: 'page-1', thumbnailDataURL: 'data:image/jpeg;base64,AA==', selected: true,
+            selectionOrder: 1, width: 1200, height: 1700,
+        };
+        vi.mocked(bindings.GetSession).mockResolvedValue({...baseSession, pages: [page], selectedCount: 1} as any);
+
+        render(<App/>);
+        const user = userEvent.setup();
+
+        expect(await screen.findByRole('button', {name: 'Upload ke Arsipin'})).toBeDisabled();
+        await user.click(screen.getByRole('button', {name: 'Konfigurasi Arsipin'}));
+        expect(screen.getByRole('dialog', {name: 'Konfigurasi upload'})).toBeInTheDocument();
+    });
+
+    it('mengunggah halaman terpilih dan menampilkan job Arsipin', async () => {
+        const page = {
+            id: 'page-1', thumbnailDataURL: 'data:image/jpeg;base64,AA==', selected: true,
+            selectionOrder: 1, width: 1200, height: 1700,
+        };
+        vi.mocked(bindings.GetSession).mockResolvedValue({...baseSession, pages: [page], selectedCount: 1} as any);
+        vi.mocked(bindings.GetArsipinConfig).mockResolvedValue({uploadUrl: 'https://arsipin.example/upload', passwordConfigured: true} as any);
+        vi.mocked(bindings.UploadSelectedToArsipin).mockResolvedValue({
+            success: true,
+            message: 'Dokumen masuk antrean pemrosesan.',
+            statusCode: 202,
+            errorCode: '',
+            archiveId: '01AR',
+            jobId: '01JB',
+        } as any);
+
+        render(<App/>);
+        const user = userEvent.setup();
+        await user.click(await screen.findByRole('button', {name: 'Upload ke Arsipin'}));
+
+        await waitFor(() => expect(bindings.UploadSelectedToArsipin).toHaveBeenCalledTimes(1));
+        expect(await screen.findByText('Upload ke Arsipin berhasil')).toBeInTheDocument();
+        expect(await screen.findByText(/01JB/)).toBeInTheDocument();
     });
 
     it('meminta persetujuan lalu mengunduh update yang dipilih', async () => {

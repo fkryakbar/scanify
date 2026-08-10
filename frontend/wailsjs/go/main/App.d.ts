@@ -10,10 +10,16 @@ export function DownloadUpdate(arg1:string):Promise<main.UpdateDownloadDTO>;
 
 export function ExportSelected(arg1:string):Promise<main.ExportResultDTO>;
 
+export function GetArsipinConfig():Promise<main.ArsipinConfigDTO>;
+
 export function GetSession():Promise<main.SessionDTO>;
 
 export function ListScanners():Promise<Array<main.ScannerDTO>>;
 
+export function SaveArsipinConfig(arg1:string,arg2:string):Promise<main.ArsipinConfigDTO>;
+
 export function Scan(arg1:main.ScanRequest):Promise<main.ScanResultDTO>;
 
 export function SetPageSelected(arg1:string,arg2:boolean):Promise<main.SessionDTO>;
+
+export function UploadSelectedToArsipin():Promise<main.ArsipinUploadResultDTO>;

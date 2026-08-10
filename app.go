@@ -14,26 +14,31 @@ import (
 )
 
 type App struct {
-	ctx       context.Context
-	scanner   ScannerBackend
-	session   *Session
-	exporter  Exporter
-	updater   *UpdateService
-	initErr   error
-	operation sync.Mutex
-	statusMu  sync.RWMutex
-	status    string
+	ctx        context.Context
+	scanner    ScannerBackend
+	session    *Session
+	exporter   Exporter
+	updater    *UpdateService
+	arsipin    *ArsipinService
+	arsipinErr error
+	initErr    error
+	operation  sync.Mutex
+	statusMu   sync.RWMutex
+	status     string
 }
 
 func NewApp() *App {
 	session, err := NewSession()
+	arsipin, arsipinErr := NewArsipinService()
 	app := &App{
-		scanner:  NewWIAWorker(),
-		session:  session,
-		exporter: Exporter{},
-		updater:  NewUpdateService(Version),
-		initErr:  err,
-		status:   "Mencari scanner WIA...",
+		scanner:    NewWIAWorker(),
+		session:    session,
+		exporter:   Exporter{},
+		updater:    NewUpdateService(Version),
+		arsipin:    arsipin,
+		arsipinErr: arsipinErr,
+		initErr:    err,
+		status:     "Mencari scanner WIA...",
 	}
 	if err != nil {
 		app.status = "Folder sementara tidak dapat dibuat."
@@ -87,6 +92,72 @@ func (a *App) GetSession() SessionDTO {
 		return SessionDTO{Pages: []PageDTO{}, Status: a.getStatus()}
 	}
 	return a.session.Snapshot(a.getStatus())
+}
+
+func (a *App) GetArsipinConfig() (ArsipinConfigDTO, error) {
+	if a.arsipinErr != nil {
+		return ArsipinConfigDTO{}, a.arsipinErr
+	}
+	if a.arsipin == nil {
+		return ArsipinConfigDTO{}, errors.New("layanan Arsipin belum siap")
+	}
+	return a.arsipin.Config()
+}
+
+func (a *App) SaveArsipinConfig(uploadURL, password string) (ArsipinConfigDTO, error) {
+	if a.arsipinErr != nil {
+		return ArsipinConfigDTO{}, a.arsipinErr
+	}
+	if a.arsipin == nil {
+		return ArsipinConfigDTO{}, errors.New("layanan Arsipin belum siap")
+	}
+	return a.arsipin.SaveConfig(uploadURL, password)
+}
+
+func (a *App) UploadSelectedToArsipin() (ArsipinUploadResultDTO, error) {
+	if err := a.ready(); err != nil {
+		return ArsipinUploadResultDTO{}, err
+	}
+	if a.arsipinErr != nil {
+		return ArsipinUploadResultDTO{}, a.arsipinErr
+	}
+	if a.arsipin == nil {
+		return ArsipinUploadResultDTO{}, errors.New("layanan Arsipin belum siap")
+	}
+	if !a.operation.TryLock() {
+		return ArsipinUploadResultDTO{}, errors.New("operasi lain sedang berjalan")
+	}
+	defer a.operation.Unlock()
+
+	config, err := a.arsipin.configForUpload()
+	if err != nil {
+		return ArsipinUploadResultDTO{}, err
+	}
+	pages, err := a.session.SelectedPages()
+	if err != nil {
+		return ArsipinUploadResultDTO{}, err
+	}
+
+	temporaryPath := filepath.Join(a.session.RootDir(), "upload-"+newID()+".pdf")
+	defer os.Remove(temporaryPath)
+	a.setStatus("Menyusun PDF untuk Arsipin...")
+	if err := a.exporter.ExportPDF(pages, temporaryPath, a.session.RootDir()); err != nil {
+		a.setStatus("PDF untuk Arsipin gagal dibuat.")
+		return ArsipinUploadResultDTO{}, fmt.Errorf("gagal menyiapkan PDF upload: %w", err)
+	}
+
+	a.setStatus("Mengunggah dokumen ke Arsipin...")
+	result, err := a.arsipin.Upload(a.context(), config.UploadURL, config.WorkspacePassword, temporaryPath, arsipinUploadFilename)
+	if err != nil {
+		a.setStatus("Upload ke Arsipin gagal.")
+		return ArsipinUploadResultDTO{}, err
+	}
+	if result.Success {
+		a.setStatus("Dokumen masuk antrean Arsipin.")
+	} else {
+		a.setStatus("Upload ke Arsipin gagal.")
+	}
+	return result, nil
 }
 
 func (a *App) ListScanners() ([]ScannerDTO, error) {

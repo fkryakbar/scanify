@@ -37,6 +37,20 @@ type ExportResultDTO struct {
 	Paths     []string `json:"paths"`
 }
 
+type ArsipinConfigDTO struct {
+	UploadURL          string `json:"uploadUrl"`
+	PasswordConfigured bool   `json:"passwordConfigured"`
+}
+
+type ArsipinUploadResultDTO struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	StatusCode int    `json:"statusCode"`
+	ErrorCode  string `json:"errorCode"`
+	ArchiveID  string `json:"archiveId"`
+	JobID      string `json:"jobId"`
+}
+
 type UpdateInfoDTO struct {
 	Available      bool   `json:"available"`
 	CurrentVersion string `json:"currentVersion"`

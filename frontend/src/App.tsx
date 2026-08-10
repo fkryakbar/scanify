@@ -6,14 +6,17 @@ import {
     DeletePage,
     DownloadUpdate,
     ExportSelected,
+    GetArsipinConfig,
     GetSession,
     ListScanners,
+    SaveArsipinConfig,
     Scan,
     SetPageSelected,
+    UploadSelectedToArsipin,
 } from '../wailsjs/go/main/App';
 import {main} from '../wailsjs/go/models';
 
-type Operation = 'loading' | 'refreshing' | 'scanning' | 'exporting-jpg' | 'exporting-pdf' | 'downloading-update' | null;
+type Operation = 'loading' | 'refreshing' | 'scanning' | 'exporting-jpg' | 'exporting-pdf' | 'uploading-arsipin' | 'downloading-update' | null;
 type ToastKind = 'success' | 'warning' | 'error';
 
 interface Toast {
@@ -24,6 +27,7 @@ interface Toast {
 }
 
 const emptySession = new main.SessionDTO({pages: [], selectedCount: 0, status: 'Mencari scanner WIA...'});
+const emptyArsipinConfig = new main.ArsipinConfigDTO({uploadUrl: '', passwordConfigured: false});
 
 const modes = [
     {id: 'color', label: 'Warna', description: 'Dokumen penuh warna'},
@@ -42,6 +46,11 @@ function App() {
     const [operation, setOperation] = useState<Operation>('loading');
     const [pendingPage, setPendingPage] = useState<string | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
+    const [arsipinConfig, setArsipinConfig] = useState<main.ArsipinConfigDTO>(emptyArsipinConfig);
+    const [arsipinConfigOpen, setArsipinConfigOpen] = useState(false);
+    const [arsipinURLDraft, setArsipinURLDraft] = useState('');
+    const [arsipinPasswordDraft, setArsipinPasswordDraft] = useState('');
+    const [arsipinConfigSaving, setArsipinConfigSaving] = useState(false);
     const [updateInfo, setUpdateInfo] = useState<main.UpdateInfoDTO | null>(null);
     const [toasts, setToasts] = useState<Toast[]>([]);
     const toastID = useRef(0);
@@ -83,7 +92,7 @@ function App() {
 
     useEffect(() => {
         let active = true;
-        Promise.allSettled([GetSession(), ListScanners()]).then(([sessionResult, scannerResult]) => {
+        Promise.allSettled([GetSession(), ListScanners(), GetArsipinConfig()]).then(([sessionResult, scannerResult, arsipinResult]) => {
             if (!active) return;
             if (sessionResult.status === 'fulfilled') {
                 setSession(sessionResult.value);
@@ -96,6 +105,11 @@ function App() {
                 setSelectedScanner(available[0]?.id ?? '');
             } else {
                 addToast('error', 'Scanner tidak dapat dibaca', errorMessage(scannerResult.reason));
+            }
+            if (arsipinResult.status === 'fulfilled') {
+                setArsipinConfig(arsipinResult.value);
+            } else {
+                addToast('warning', 'Konfigurasi Arsipin tidak dapat dimuat', errorMessage(arsipinResult.reason));
             }
             setOperation(null);
         });
@@ -119,6 +133,7 @@ function App() {
     }, []);
 
     const busy = operation !== null;
+    const arsipinConfigured = Boolean(arsipinConfig.uploadUrl.trim() && arsipinConfig.passwordConfigured);
     const activeScannerName = useMemo(
         () => scanners.find((scanner) => scanner.id === selectedScanner)?.name,
         [scanners, selectedScanner],
@@ -203,6 +218,47 @@ function App() {
             );
         } catch (error) {
             addToast('error', 'Pembaruan gagal diunduh', errorMessage(error));
+        } finally {
+            setOperation(null);
+        }
+    }
+
+    function openArsipinConfig() {
+        setArsipinURLDraft(arsipinConfig.uploadUrl);
+        setArsipinPasswordDraft('');
+        setArsipinConfigOpen(true);
+    }
+
+    async function handleSaveArsipinConfig(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (arsipinConfigSaving) return;
+        setArsipinConfigSaving(true);
+        try {
+            const saved = await SaveArsipinConfig(arsipinURLDraft, arsipinPasswordDraft);
+            setArsipinConfig(saved);
+            setArsipinConfigOpen(false);
+            setArsipinPasswordDraft('');
+            addToast('success', 'Konfigurasi Arsipin tersimpan', 'Tombol Upload ke Arsipin sekarang siap digunakan.');
+        } catch (error) {
+            addToast('error', 'Konfigurasi Arsipin gagal disimpan', errorMessage(error));
+        } finally {
+            setArsipinConfigSaving(false);
+        }
+    }
+
+    async function handleUploadToArsipin() {
+        if (busy || !arsipinConfigured || session.selectedCount === 0) return;
+        setOperation('uploading-arsipin');
+        try {
+            const result = await UploadSelectedToArsipin();
+            if (result.success) {
+                const jobDetail = result.jobId ? ` ID antrean: ${result.jobId}.` : '';
+                addToast('success', 'Upload ke Arsipin berhasil', `${result.message}${jobDetail}`);
+            } else {
+                addToast('error', 'Upload ke Arsipin gagal', arsipinFailureMessage(result));
+            }
+        } catch (error) {
+            addToast('error', 'Upload ke Arsipin gagal', errorMessage(error));
         } finally {
             setOperation(null);
         }
@@ -337,16 +393,38 @@ function App() {
                             </div>
                             <p>{session.selectedCount ? `${session.selectedCount} halaman dipilih untuk diekspor` : 'Pilih halaman sesuai urutan ekspor'}</p>
                         </div>
-                        <button
-                            type="button"
-                            className="save-button"
-                            onClick={() => setExportOpen(true)}
-                            disabled={busy || session.selectedCount === 0}
-                        >
-                            <DownloadIcon/>
-                            <span>Simpan</span>
-                            {session.selectedCount > 0 && <span className="selected-badge">{session.selectedCount}</span>}
-                        </button>
+                        <div className="workspace-actions">
+                            <button
+                                type="button"
+                                className="save-button"
+                                onClick={() => setExportOpen(true)}
+                                disabled={busy || session.selectedCount === 0}
+                            >
+                                <DownloadIcon/>
+                                <span>Simpan</span>
+                                {session.selectedCount > 0 && <span className="selected-badge">{session.selectedCount}</span>}
+                            </button>
+                            <button
+                                type="button"
+                                className="upload-button"
+                                onClick={handleUploadToArsipin}
+                                disabled={busy || session.selectedCount === 0 || !arsipinConfigured}
+                                title={arsipinConfigured ? 'Upload halaman terpilih ke Arsipin' : 'Konfigurasikan URL upload dan password workspace terlebih dahulu'}
+                            >
+                                <UploadIcon/>
+                                <span>Upload ke Arsipin</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="config-button"
+                                aria-label="Konfigurasi Arsipin"
+                                title="Konfigurasi Arsipin"
+                                onClick={openArsipinConfig}
+                                disabled={busy}
+                            >
+                                <SettingsIcon/>
+                            </button>
+                        </div>
                     </header>
 
                     <div className={`gallery-surface ${session.pages.length === 0 ? 'is-empty' : ''}`}>
@@ -419,6 +497,57 @@ function App() {
                     </div>
                 </section>
             </main>
+
+            {arsipinConfigOpen && (
+                <div className="modal-backdrop" role="presentation" onMouseDown={() => !arsipinConfigSaving && setArsipinConfigOpen(false)}>
+                    <form
+                        className="export-modal config-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="arsipin-config-title"
+                        onSubmit={handleSaveArsipinConfig}
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <div className="modal-icon"><SettingsIcon/></div>
+                        <div className="modal-copy">
+                            <span className="eyebrow">Integrasi Arsipin</span>
+                            <h2 id="arsipin-config-title">Konfigurasi upload</h2>
+                            <p>Masukkan endpoint upload lengkap dan password workspace untuk mengaktifkan tombol upload.</p>
+                        </div>
+                        <div className="config-fields">
+                            <label className="config-field">
+                                <span>URL upload lengkap</span>
+                                <input
+                                    type="url"
+                                    value={arsipinURLDraft}
+                                    onChange={(event) => setArsipinURLDraft(event.target.value)}
+                                    placeholder="https://arsipin-api.../archives/upload"
+                                    autoComplete="url"
+                                    required
+                                />
+                            </label>
+                            <label className="config-field">
+                                <span>Password workspace</span>
+                                <input
+                                    type="password"
+                                    value={arsipinPasswordDraft}
+                                    onChange={(event) => setArsipinPasswordDraft(event.target.value)}
+                                    placeholder={arsipinConfig.passwordConfigured ? '•••••••• (tersimpan)' : 'Masukkan password workspace'}
+                                    autoComplete="new-password"
+                                    required={!arsipinConfig.passwordConfigured}
+                                />
+                                <small>{arsipinConfig.passwordConfigured ? 'Kosongkan jika password tidak ingin diubah.' : 'Password akan disimpan di konfigurasi lokal Windows.'}</small>
+                            </label>
+                        </div>
+                        <div className="config-actions">
+                            <button className="cancel-button" type="button" onClick={() => setArsipinConfigOpen(false)} disabled={arsipinConfigSaving}>Batal</button>
+                            <button className="scan-button" type="submit" disabled={arsipinConfigSaving}>
+                                <span>{arsipinConfigSaving ? 'Menyimpan...' : 'Simpan konfigurasi'}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
 
             {updateInfo && (
                 <div className="modal-backdrop" role="presentation">
@@ -524,6 +653,7 @@ function operationTitle(operation: Operation): string {
         case 'scanning': return 'Sedang memindai';
         case 'exporting-jpg': return 'Menyimpan gambar JPG';
         case 'exporting-pdf': return 'Menyusun dokumen PDF';
+        case 'uploading-arsipin': return 'Mengunggah ke Arsipin';
         case 'downloading-update': return 'Mengunduh pembaruan';
         default: return 'Memproses';
     }
@@ -534,6 +664,7 @@ function operationDescription(operation: Operation): string {
         case 'scanning': return 'Jangan mengangkat penutup scanner hingga proses selesai.';
         case 'exporting-jpg': return 'Mengonversi halaman sesuai urutan pilihan.';
         case 'exporting-pdf': return 'Menata setiap halaman pada lembar A4.';
+        case 'uploading-arsipin': return 'Menyusun PDF dan mengirimkannya ke antrean Arsipin.';
         case 'downloading-update': return 'Mengunduh file resmi dan memverifikasi SHA-256.';
         default: return 'Mohon tunggu sebentar.';
     }
@@ -542,10 +673,43 @@ function operationDescription(operation: Operation): string {
 function RefreshIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>; }
 function ScanIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4V2h12v2M5 18H3V8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2M6 14h12v8H6z"/><path d="M17 10h.01"/></svg>; }
 function DownloadIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>; }
+function UploadIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg>; }
+function SettingsIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3.1 1.3v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3.1-1.3l-.1.1a1.8 1.8 0 0 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-1.3-3.1h-.2a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 1.3-3.1l-.1-.1a1.8 1.8 0 0 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3.1-1.3v-.2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3.1 1.3l.1-.1a1.8 1.8 0 0 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 1.3 3.1h.2a1.8 1.8 0 0 1 0 3.6h-.2a1.8 1.8 0 0 0-1.3 3.1Z"/></svg>; }
 function DocumentIcon() { return <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M18 6h20l10 10v42H18z"/><path d="M38 6v12h12M25 29h16M25 37h16M25 45h11"/></svg>; }
 function CheckIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>; }
 function TrashIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6"/></svg>; }
 function ChevronIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>; }
 function ChevronRightIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>; }
+
+function arsipinFailureMessage(result: main.ArsipinUploadResultDTO): string {
+    const code = result.errorCode ? `Kode: ${result.errorCode}.` : `HTTP ${result.statusCode}.`;
+    return `${result.message} ${code} ${arsipinFailureAction(result.errorCode)}`.trim();
+}
+
+function arsipinFailureAction(code: string): string {
+    switch (code) {
+        case 'PUBLIC_API_UNAUTHORIZED':
+            return 'Periksa password workspace di Konfigurasi Arsipin.';
+        case 'PUBLIC_API_DISABLED':
+        case 'INSUFFICIENT_CREDIT':
+        case 'DRIVE_NOT_CONNECTED':
+            return 'Periksa status Public API, kredit, atau Google Drive workspace.';
+        case 'PUBLIC_NOT_FOUND':
+            return 'Periksa URL endpoint lengkap dan workspace key.';
+        case 'FILE_REQUIRED':
+        case 'FILE_TOO_LARGE':
+        case 'FILE_INVALID':
+        case 'UNSUPPORTED_FILE':
+            return 'Periksa ukuran dan format yang diizinkan workspace, lalu coba lagi.';
+        case 'RATE_LIMITED':
+            return 'Tunggu beberapa saat sebelum mencoba lagi.';
+        case 'DRIVE_STATUS_CHECK_FAILED':
+        case 'TEMP_STORAGE_FAILED':
+        case 'UPLOAD_FAILED':
+            return 'Coba lagi beberapa saat kemudian.';
+        default:
+            return 'Periksa koneksi dan konfigurasi endpoint, lalu coba lagi.';
+    }
+}
 
 export default App;

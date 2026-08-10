@@ -10,7 +10,7 @@
 
 Scanify adalah aplikasi open-source berbasis Go dan Wails untuk memindai, menyusun, dan mengekspor dokumen melalui Windows Image Acquisition (WIA). Antarmukanya menggunakan React dan seluruh aplikasi produksi dikemas menjadi satu file EXE.
 
-> Scanify v2 merupakan migrasi dari aplikasi WPF/.NET. Fitur unggah SIREKA belum disertakan dalam versi ini.
+> Scanify v2 merupakan migrasi dari aplikasi WPF/.NET. Scanify dapat mengirim PDF halaman terpilih ke Arsipin melalui Public API setelah pengguna mengisi konfigurasi workspace.
 
 ## Fitur
 
@@ -22,6 +22,8 @@ Scanify adalah aplikasi open-source berbasis Go dan Wails untuk memindai, menyus
 - Penghapusan halaman dengan pemadatan ulang nomor urut.
 - Ekspor setiap halaman sebagai JPG yang valid.
 - Penggabungan halaman terpilih menjadi PDF A4.
+- Upload halaman terpilih sebagai satu PDF ke antrean Arsipin.
+- Penyimpanan konfigurasi endpoint dan password workspace di konfigurasi pengguna Windows.
 - Nama file unik sehingga hasil lama tidak ditimpa.
 - Pembersihan file sesi sementara saat aplikasi ditutup.
 - Pemeriksaan versi otomatis dari GitHub Release dengan persetujuan sebelum mengunduh.
@@ -46,8 +48,10 @@ Binary rilis menyertakan bootstrapper WebView2. Jika WebView2 Runtime belum ters
 3. Cocokkan SHA-256 file dengan `checksums.txt` jika diperlukan.
 4. Pastikan driver WIA scanner sudah terpasang dan scanner sudah menyala.
 5. Jalankan EXE, pilih scanner dan pengaturan, lalu tekan **Mulai scan**.
+6. Jika ingin memakai Arsipin, buka ikon gear di samping tombol **Upload ke Arsipin**, isi endpoint upload lengkap dan password workspace, lalu simpan konfigurasi.
+7. Pilih halaman yang akan dikirim, lalu tekan **Upload ke Arsipin**.
 
-Tidak ada installer dan tidak ada layanan latar belakang. Hasil scan hanya disimpan ke lokasi yang dipilih pengguna.
+Tidak ada installer dan tidak ada layanan latar belakang. Hasil scan disimpan sementara secara lokal sampai aplikasi ditutup. Konfigurasi Arsipin berada di `%APPDATA%\Scanify\arsipin.json`.
 
 Saat aplikasi versi rilis dibuka, Scanify memeriksa GitHub Release terbaru. Jika versi baru tersedia, pengguna dapat memilih **Ya, unduh update** atau **Nanti saja**. Pembaruan yang disetujui diunduh ke folder binary yang sedang berjalan, diverifikasi dengan ukuran dan checksum SHA-256, lalu aplikasi lama ditutup dan EXE baru dijalankan otomatis dari path yang sama. Jika penggantian gagal, binary lama dipulihkan oleh updater.
 
@@ -137,13 +141,14 @@ React/TypeScript UI
    Wails bindings
         |
 Go application service
-   |             |
-WIA worker    Session/exporter
-(COM STA)     (JPG dan PDF)
+   |             |             |
+WIA worker    Session/exporter  Arsipin HTTP client
+(COM STA)     (JPG dan PDF)     (multipart PDF)
 ```
 
 Komponen penting:
 
+- `arsipin.go` — persistence konfigurasi dan upload multipart ke Arsipin.
 - `wia_windows.go` — komunikasi COM/WIA pada satu thread Windows khusus.
 - `session.go` — halaman sementara, pilihan, urutan, dan pembersihan.
 - `exporter.go` — ekspor JPG serta pembuatan dan validasi PDF.
@@ -163,7 +168,7 @@ Untuk masalah scanner, sertakan versi Windows, nama perangkat, versi driver WIA,
 
 ## Privasi
 
-Pemindaian dan ekspor dilakukan secara lokal. Scanify tidak mengunggah dokumen, telemetri, atau data scanner ke server. Pada build rilis, aplikasi mengakses API dan asset GitHub Release untuk memeriksa serta—hanya setelah disetujui—mengunduh pembaruan. Koneksi internet juga mungkin diperlukan oleh bootstrapper ketika WebView2 Runtime belum terpasang.
+Pemindaian dan ekspor dilakukan secara lokal. Scanify hanya mengunggah PDF ketika pengguna menekan tombol **Upload ke Arsipin** dan telah menyimpan konfigurasi. Password workspace disimpan plaintext di `%APPDATA%\Scanify\arsipin.json`; lindungi akun Windows dan file konfigurasi dari akses pengguna lain. Scanify tidak mengirim telemetri atau data scanner. Pada build rilis, aplikasi mengakses API dan asset GitHub Release untuk memeriksa serta—hanya setelah disetujui—mengunduh pembaruan. Koneksi internet juga mungkin diperlukan oleh bootstrapper ketika WebView2 Runtime belum terpasang.
 
 ## Lisensi
 
