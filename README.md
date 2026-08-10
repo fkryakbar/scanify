@@ -1,175 +1,103 @@
 <p align="center">
-  <img src="frontend/src/assets/images/scanify-logo.png" alt="Scanify" width="128">
+  <img src="frontend/src/assets/images/scanify-logo.png" alt="Logo Scanify" width="128">
 </p>
 
 <h1 align="center">Scanify</h1>
 
 <p align="center">
-  Aplikasi desktop pemindai dokumen yang cepat, lokal, dan portabel untuk Windows.
+  Pindai, susun, simpan, dan kirim dokumen dari satu aplikasi Windows.
 </p>
 
-Scanify adalah aplikasi open-source berbasis Go dan Wails untuk memindai, menyusun, dan mengekspor dokumen melalui Windows Image Acquisition (WIA). Antarmukanya menggunakan React dan seluruh aplikasi produksi dikemas menjadi satu file EXE.
+Scanify membantu Anda mengubah dokumen kertas menjadi file digital dengan lebih praktis. Hasil pemindaian dapat ditinjau dan disusun terlebih dahulu, kemudian disimpan sebagai JPG atau PDF. Dokumen juga dapat langsung dikirim ke <a href="https://arsipin.fkr.web.id">Workspace Arsipin</a> tanpa perlu mengunggahnya secara manual melalui browser.
 
-> Scanify v2 merupakan migrasi dari aplikasi WPF/.NET. Scanify dapat mengirim PDF halaman terpilih ke Arsipin melalui Public API setelah pengguna mengisi konfigurasi workspace.
+## Yang dapat dilakukan
 
-## Fitur
+- Memindai dokumen menggunakan scanner yang mendukung WIA.
+- Memilih hasil berwarna, abu-abu, atau hitam putih.
+- Mengatur kualitas pemindaian ke 150, 300, atau 600 DPI.
+- Meninjau, memilih, mengurutkan, dan menghapus halaman sebelum disimpan.
+- Menyimpan setiap halaman sebagai JPG atau menggabungkannya menjadi satu PDF A4.
+- Mengirim halaman terpilih langsung ke Workspace Arsipin.
+- Memeriksa ketersediaan versi baru secara otomatis.
+- Menjaga proses pemindaian tetap lokal sampai Anda memilih untuk mengunggah dokumen.
 
-- Mendeteksi dan memilih scanner WIA yang terhubung.
-- Mode warna, abu-abu, dan hitam putih.
-- Resolusi 150, 300, dan 600 DPI.
-- Galeri pratinjau hasil scan.
-- Pemilihan halaman dengan urutan ekspor yang terlihat.
-- Penghapusan halaman dengan pemadatan ulang nomor urut.
-- Ekspor setiap halaman sebagai JPG yang valid.
-- Penggabungan halaman terpilih menjadi PDF A4.
-- Upload halaman terpilih sebagai satu PDF ke antrean Arsipin.
-- Penyimpanan konfigurasi endpoint dan password workspace di konfigurasi pengguna Windows.
-- Nama file unik sehingga hasil lama tidak ditimpa.
-- Pembersihan file sesi sementara saat aplikasi ditutup.
-- Pemeriksaan versi otomatis dari GitHub Release dengan persetujuan sebelum mengunduh.
-- Verifikasi SHA-256 untuk setiap pembaruan yang diunduh.
-- Antarmuka berbahasa Indonesia dengan tema gelap.
+## Mulai menggunakan Scanify
 
-## Kompatibilitas
+1. Buka halaman [Releases](https://github.com/fkryakbar/scanify/releases).
+2. Unduh file `Scanify-vX.Y.Z-windows-amd64.exe` dari versi terbaru.
+3. Pastikan scanner sudah menyala dan driver-nya telah terpasang.
+4. Jalankan Scanify, lalu pilih scanner, warna, dan kualitas pemindaian.
+5. Tekan **Mulai scan**.
+6. Tinjau hasilnya, pilih halaman yang dibutuhkan, lalu simpan sebagai JPG/PDF atau kirim ke Arsipin.
 
-| Komponen | Dukungan |
+Scanify bersifat portabel sehingga tidak memerlukan proses instalasi. Pada komputer yang belum memiliki Microsoft Edge WebView2 Runtime, Windows mungkin akan meminta pemasangannya saat Scanify pertama kali dijalankan.
+
+## Hubungkan dengan Workspace Arsipin
+
+Scanify dapat terhubung ke workspace yang Anda gunakan di [arsipin.fkr.web.id](https://arsipin.fkr.web.id). Siapkan dua informasi dari Workspace Arsipin Anda:
+
+- **Workspace API Link**
+- **Password workspace**
+
+Kemudian hubungkan workspace dengan langkah berikut:
+
+1. Di Scanify, klik ikon **gear/pengaturan** di samping tombol **Upload ke Arsipin**.
+2. Tempel **Workspace API Link** ke kolom **URL upload lengkap**.
+3. Masukkan **password workspace**.
+4. Klik **Simpan konfigurasi**.
+
+Setelah tersambung, pilih halaman hasil scan yang ingin dikirim dan klik **Upload ke Arsipin**. Scanify akan menggabungkan halaman tersebut menjadi satu PDF dan mengirimkannya ke antrean arsip pada workspace Anda.
+
+> Workspace API Link berbeda untuk setiap workspace. Salin link secara lengkap dari Workspace Arsipin dan jangan membagikan password workspace kepada orang lain.
+
+## Kebutuhan perangkat
+
+| Kebutuhan | Keterangan |
 | --- | --- |
-| Sistem operasi | Windows 10/11 x64 |
-| Scanner | Perangkat dengan driver WIA |
-| UI runtime | Microsoft Edge WebView2 |
-| Perangkat teruji | Canon MP280 series |
+| Sistem operasi | Windows 10 atau Windows 11 (64-bit) |
+| Scanner | Scanner dengan driver WIA |
+| Komponen tampilan | Microsoft Edge WebView2 Runtime |
+| Scanner yang telah diuji | Canon MP280 series |
 
-Binary rilis menyertakan bootstrapper WebView2. Jika WebView2 Runtime belum tersedia, Windows dapat meminta pemasangannya sebelum aplikasi dijalankan.
+## Privasi dan penyimpanan data
 
-## Unduh dan gunakan
+Pemindaian, penyusunan halaman, dan pembuatan file dilakukan di komputer Anda. Dokumen hanya dikirim ke Arsipin ketika Anda menekan **Upload ke Arsipin**.
 
-1. Buka halaman **Releases** repositori.
-2. Unduh `Scanify-vX.Y.Z-windows-amd64.exe`.
-3. Cocokkan SHA-256 file dengan `checksums.txt` jika diperlukan.
-4. Pastikan driver WIA scanner sudah terpasang dan scanner sudah menyala.
-5. Jalankan EXE, pilih scanner dan pengaturan, lalu tekan **Mulai scan**.
-6. Jika ingin memakai Arsipin, buka ikon gear di samping tombol **Upload ke Arsipin**, isi endpoint upload lengkap dan password workspace, lalu simpan konfigurasi.
-7. Pilih halaman yang akan dikirim, lalu tekan **Upload ke Arsipin**.
+Workspace API Link dan password workspace disimpan di komputer pada `%APPDATA%\Scanify\arsipin.json`. Password tersimpan sebagai teks biasa, jadi pastikan akun Windows dan perangkat Anda tidak digunakan oleh pihak yang tidak berwenang. File hasil scan sementara akan dibersihkan ketika aplikasi ditutup.
 
-Tidak ada installer dan tidak ada layanan latar belakang. Hasil scan disimpan sementara secara lokal sampai aplikasi ditutup. Konfigurasi Arsipin berada di `%APPDATA%\Scanify\arsipin.json`.
+Scanify tidak mengirim telemetri atau informasi scanner. Koneksi internet digunakan untuk mengunggah dokumen ke Arsipin, memeriksa pembaruan aplikasi, dan memasang WebView2 Runtime jika komponen tersebut belum tersedia.
 
-Saat aplikasi versi rilis dibuka, Scanify memeriksa GitHub Release terbaru. Jika versi baru tersedia, pengguna dapat memilih **Ya, unduh update** atau **Nanti saja**. Pembaruan yang disetujui diunduh ke folder binary yang sedang berjalan, diverifikasi dengan ukuran dan checksum SHA-256, lalu aplikasi lama ditutup dan EXE baru dijalankan otomatis dari path yang sama. Jika penggantian gagal, binary lama dipulihkan oleh updater.
+## Untuk pengembang
 
-## Pengembangan
-
-### Prasyarat
-
-- Windows 10/11 x64
-- Go sesuai versi pada `go.mod`
-- Node.js 24 atau versi LTS kompatibel
-- Wails CLI v2.12.0
-- Driver WIA untuk pengujian perangkat fisik
-
-Pasang Wails CLI:
+Scanify dibuat dengan Go, Wails, dan React. Untuk menjalankan proyek dari kode sumber, siapkan Go sesuai versi pada `go.mod`, Node.js, Wails CLI v2.12.0, serta driver WIA.
 
 ```powershell
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
-```
-
-Pasang dependensi dan jalankan aplikasi:
-
-```powershell
-git clone <URL-REPOSITORI-ANDA>
+git clone https://github.com/fkryakbar/scanify.git
 cd scanify
 npm ci --prefix frontend
 wails dev
 ```
 
-## Pengujian
-
-Pada clone baru, build frontend terlebih dahulu karena hasil `frontend/dist` di-embed oleh Go:
+Menjalankan pengujian:
 
 ```powershell
-npm ci --prefix frontend
 npm test --prefix frontend
 npm run build --prefix frontend
 go test ./...
 ```
 
-Uji deteksi scanner fisik:
-
-```powershell
-$env:SCANIFY_HARDWARE_TEST='1'
-go test -run TestWIAHardwareEnumeration -v
-```
-
-Uji berikut benar-benar menggerakkan scanner satu kali pada mode warna 300 DPI:
-
-```powershell
-$env:SCANIFY_SCAN_HARDWARE_TEST='1'
-go test -run TestWIAHardwareScan -v
-```
-
-## Build lokal
+Membuat aplikasi Windows:
 
 ```powershell
 wails build -clean -trimpath -platform windows/amd64 -webview2 embed -o scanify.exe
 ```
 
-Binary akan dibuat di `build/bin/scanify.exe`.
-
-## Rilis dan versioning
-
-Rilis menggunakan [Semantic Versioning](https://semver.org/) dengan format tag `vMAJOR.MINOR.PATCH`. Workflow `.github/workflows/release.yml` hanya dipicu oleh tag dan akan:
-
-1. Memvalidasi format tag.
-2. Menjalankan tes Go dan React.
-3. Memasukkan versi tag ke judul aplikasi dan metadata Windows.
-4. Membangun EXE Windows x64 portabel.
-5. Menghasilkan checksum SHA-256.
-6. Membuat GitHub Release dan mengunggah artefaknya.
-
-Contoh membuat rilis:
-
-```powershell
-git tag -a v2.0.0 -m "Release v2.0.0"
-git push origin v2.0.0
-```
-
-Tag selain format seperti `v2.0.0` akan ditolak oleh workflow.
-
-## Arsitektur
-
-```text
-React/TypeScript UI
-        |
-   Wails bindings
-        |
-Go application service
-   |             |             |
-WIA worker    Session/exporter  Arsipin HTTP client
-(COM STA)     (JPG dan PDF)     (multipart PDF)
-```
-
-Komponen penting:
-
-- `arsipin.go` — persistence konfigurasi dan upload multipart ke Arsipin.
-- `wia_windows.go` — komunikasi COM/WIA pada satu thread Windows khusus.
-- `session.go` — halaman sementara, pilihan, urutan, dan pembersihan.
-- `exporter.go` — ekspor JPG serta pembuatan dan validasi PDF.
-- `frontend/src/App.tsx` — antarmuka React berbahasa Indonesia.
+Hasil build tersedia di `build/bin/scanify.exe`.
 
 ## Kontribusi
 
-Kontribusi, laporan bug, dan usulan fitur dipersilakan.
-
-1. Fork repositori.
-2. Buat branch perubahan, misalnya `feature/adf-support`.
-3. Tambahkan atau perbarui tes yang relevan.
-4. Pastikan `go test ./...` dan `npm test --prefix frontend` berhasil.
-5. Buat pull request dengan penjelasan perubahan dan cara mengujinya.
-
-Untuk masalah scanner, sertakan versi Windows, nama perangkat, versi driver WIA, mode warna, DPI, dan pesan error lengkap. Jangan unggah dokumen hasil scan yang mengandung data pribadi.
-
-## Privasi
-
-Pemindaian dan ekspor dilakukan secara lokal. Scanify hanya mengunggah PDF ketika pengguna menekan tombol **Upload ke Arsipin** dan telah menyimpan konfigurasi. Password workspace disimpan plaintext di `%APPDATA%\Scanify\arsipin.json`; lindungi akun Windows dan file konfigurasi dari akses pengguna lain. Scanify tidak mengirim telemetri atau data scanner. Pada build rilis, aplikasi mengakses API dan asset GitHub Release untuk memeriksa serta—hanya setelah disetujui—mengunduh pembaruan. Koneksi internet juga mungkin diperlukan oleh bootstrapper ketika WebView2 Runtime belum terpasang.
+Laporan bug dan usulan fitur dipersilakan melalui [GitHub Issues](https://github.com/fkryakbar/scanify/issues). Untuk kendala scanner, sertakan versi Windows, nama perangkat, versi driver, mode warna, DPI, dan pesan error. Jangan menyertakan dokumen hasil scan yang berisi data pribadi.
 
 ## Lisensi
 
-Lisensi open-source belum ditetapkan. Sebelum publikasi, tambahkan file `LICENSE`; MIT direkomendasikan untuk penggunaan dan kontribusi yang sederhana serta permisif.
+Lisensi proyek belum ditetapkan. Tambahkan file `LICENSE` sebelum mendistribusikan atau menggunakan kode sumber di luar ketentuan yang diberikan pemilik repositori.
